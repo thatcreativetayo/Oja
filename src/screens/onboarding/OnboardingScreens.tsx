@@ -15,12 +15,21 @@ import { Button, Card, Input, Screen } from '../../components/Primitives';
 import { colors, commonStyles, fonts, radius, spacing } from '../../constants/theme';
 import { Role } from '../../constants/mockData';
 import { useApp } from '../../context/AppContext';
+import { useAuthStore } from '../../../stores/AuthStore';
 
 export function SplashScreen({ navigation }: any) {
+  const { user } = useAuthStore();
+
   useEffect(() => {
-    const timer = setTimeout(() => navigation.replace('RoleSelection'), 900);
+    const timer = setTimeout(() => {
+      // If user is authenticated, they'll be routed by RootNavigator
+      // If not authenticated, go to Login
+      if (!user) {
+        navigation.replace('Login');
+      }
+    }, 900);
     return () => clearTimeout(timer);
-  }, [navigation]);
+  }, [navigation, user]);
 
   return (
     <Screen style={styles.splash}>
@@ -69,6 +78,11 @@ export function RoleSelectionScreen({ navigation }: any) {
           icon={<Bike size={26} color={colors.primary} />}
           onPress={() => chooseRole('rider')}
         />
+        <Pressable
+          onPress={() => navigation.navigate('Login')}
+          style={styles.loginLink}>
+          <Text style={styles.loginLinkText}>Already have an account? Login</Text>
+        </Pressable>
       </ScrollView>
     </Screen>
   );
@@ -459,3 +473,13 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
 });
+  loginLink: {
+    marginTop: spacing.xl,
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+  },
+  loginLinkText: {
+    color: colors.primary,
+    fontFamily: fonts.medium,
+    fontSize: 14,
+  },

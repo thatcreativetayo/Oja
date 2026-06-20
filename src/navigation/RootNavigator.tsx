@@ -13,6 +13,8 @@ import {
 
 import { colors, fonts } from '../constants/theme';
 import { useApp } from '../context/AppContext';
+import { useAuthStore } from '../../stores/AuthStore';
+import { LoginScreen } from '../screens/LoginScreen';
 import {
   RoleIntroScreen,
   RoleSelectionScreen,
@@ -191,25 +193,27 @@ function RiderTabs() {
 
 export function RootNavigator() {
   const { role, onboarded } = useApp();
+  const { user } = useAuthStore();
 
-  if (!role || !onboarded) {
-    return (
-      <RootStack.Navigator screenOptions={screenOptions}>
-        <RootStack.Screen name="Splash" component={SplashScreen} />
-        <RootStack.Screen name="RoleSelection" component={RoleSelectionScreen} />
-        <RootStack.Screen name="VerifyPhone" component={VerifyPhoneScreen} />
-        <RootStack.Screen name="RoleIntro" component={RoleIntroScreen} />
-      </RootStack.Navigator>
-    );
+  // If user is authenticated, show role-specific tabs
+  if (user && user.role) {
+    if (user.role === 'vendor') {
+      return <VendorTabs />;
+    }
+    if (user.role === 'rider') {
+      return <RiderTabs />;
+    }
+    return <BuyerTabs />;
   }
 
-  if (role === 'vendor') {
-    return <VendorTabs />;
-  }
-
-  if (role === 'rider') {
-    return <RiderTabs />;
-  }
-
-  return <BuyerTabs />;
+  // If not authenticated, show login/onboarding flow
+  return (
+    <RootStack.Navigator screenOptions={screenOptions}>
+      <RootStack.Screen name="Splash" component={SplashScreen} />
+      <RootStack.Screen name="Login" component={LoginScreen} />
+      <RootStack.Screen name="RoleSelection" component={RoleSelectionScreen} />
+      <RootStack.Screen name="VerifyPhone" component={VerifyPhoneScreen} />
+      <RootStack.Screen name="RoleIntro" component={RoleIntroScreen} />
+    </RootStack.Navigator>
+  );
 }
