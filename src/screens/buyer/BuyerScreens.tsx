@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator, Alert } from 'react-native';
+import { useState } from 'react';
+import { FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   Banknote,
   Bell,
@@ -30,22 +30,15 @@ import {
   StatusBadge,
 } from '../../components/Primitives';
 import { OjaMap } from '../../components/MockMap';
-import { categories, formatNaira } from '../../constants/mockData';
+import { categories, formatNaira, Product, products, Shop, shops } from '../../constants/mockData';
 import { colors, commonStyles, fonts, radius, shadow, spacing } from '../../constants/theme';
 import { useApp } from '../../context/AppContext';
-import type { Product, Shop } from '../../context/AppContext';
-import api from '../../lib/api';
 
 export function BuyerHomeScreen({ navigation }: any) {
-  const { cartCount, profile, shops, fetchShops, isLoading } = useApp();
+  const { cartCount, profile } = useApp();
   const [query, setQuery] = useState('');
-
-  useEffect(() => {
-    fetchShops();
-  }, [fetchShops]);
-
   const filteredShops = shops.filter((shop) =>
-    `${shop.shopName} ${shop.category}`.toLowerCase().includes(query.toLowerCase())
+    `${shop.name} ${shop.category}`.toLowerCase().includes(query.toLowerCase())
   );
 
   return (
@@ -72,6 +65,9 @@ export function BuyerHomeScreen({ navigation }: any) {
               {cartCount ? <Text style={styles.cartCount}>{cartCount}</Text> : null}
             </Pressable>
           </View>
+          {/* <Text style={styles.heroTitle}>
+            Fresh local market runs, without leaving your street.
+          </Text> */}
           <View style={styles.searchBox}>
             <Search size={20} color={colors.placeholder} />
             <Input
@@ -95,30 +91,14 @@ export function BuyerHomeScreen({ navigation }: any) {
           <Text style={commonStyles.sectionTitle}>Shops near you</Text>
           <Text style={styles.linkText}>View all</Text>
         </View>
-        {isLoading ? (
-          <View style={{ padding: spacing.xl, alignItems: 'center' }}>
-            <ActivityIndicator color={colors.primary} size="large" />
-            <Text style={{ marginTop: spacing.md, color: colors.secondary }}>
-              Loading shops...
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.shopGrid}>
-            {filteredShops.map((shop) => (
-              <ShopCard
-                key={shop._id}
-                shop={shop}
-                onPress={() => navigation.navigate('Storefront', { shopId: shop._id })}
-              />
-            ))}
-          </View>
-        )}
-        {!isLoading && filteredShops.length === 0 && (
-          <EmptyState
-            icon={<ShoppingBasket size={48} color={colors.secondary} />}
-            message="No shops found"
-          />
-        )}          ))}
+        <View style={styles.shopGrid}>
+          {filteredShops.map((shop) => (
+            <ShopCard
+              key={shop.id}
+              shop={shop}
+              onPress={() => navigation.navigate('Storefront', { shopId: shop.id })}
+            />
+          ))}
         </View>
       </ScrollView>
     </Screen>
@@ -126,20 +106,19 @@ export function BuyerHomeScreen({ navigation }: any) {
 }
 
 function ShopCard({ shop, onPress }: { shop: Shop; onPress: () => void }) {
-  const accentColor = '#FF6B00'; // Default accent color
   return (
     <Pressable onPress={onPress} style={styles.shopCard}>
-      <View style={[styles.shopImage, { backgroundColor: accentColor }]}>
-        <Text style={styles.shopHeroText}>{shop.shopName.toUpperCase()}</Text>
-        <Text style={styles.shopAwning}>{shop.isOperational ? 'OPEN TODAY' : 'CLOSED'}</Text>
+      <View style={[styles.shopImage, { backgroundColor: shop.accent }]}>
+        <Text style={styles.shopHeroText}>{shop.hero}</Text>
+        <Text style={styles.shopAwning}>OPEN TODAY</Text>
       </View>
-      <Text style={styles.shopName}>{shop.shopName}</Text>
-      <Text style={styles.shopEta}>5-10 mins</Text>
+      <Text style={styles.shopName}>{shop.name}</Text>
+      <Text style={styles.shopEta}>{shop.eta}</Text>
       <View style={styles.shopMeta}>
-        <StatusBadge status={shop.isOperational ? "open" : "closed"} />
+        <StatusBadge status="open" />
         <View style={styles.ratingRow}>
           <Star size={15} color="#FACC15" fill="#FACC15" />
-          <Text style={styles.ratingText}>{shop.averageRating?.toFixed(1) || '4.8'}</Text>
+          <Text style={styles.ratingText}>{shop.rating}</Text>
         </View>
       </View>
     </Pressable>
@@ -147,74 +126,39 @@ function ShopCard({ shop, onPress }: { shop: Shop; onPress: () => void }) {
 }
 
 export function BuyerStorefrontScreen({ navigation, route }: any) {
-  const { fetchProducts, products, cartCount, cartSubtotal, isLoading } = useApp();
-  const [shop, setShop] = useState<Shop | null>(null);
-
-  useEffect(() => {
-    const shopId = route.params?.shopId;
-    if (shopId) {
-      fetchProducts(shopId);
-      // Fetch shop details from API
-      api.get<Shop>(`/api/vendors/${shopId}`)
-        .then((data) => setShop(data))
-        .catch((err) => console.error('Failed to fetch shop:', err));
-    }
-  }, [route.params?.shopId, fetchProducts]);
-
-  if (!shop) {
-    return (
-      <Screen>
-        <Header title="" onBack={() => navigation.goBack()} />
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator color={colors.primary} size="large" />
-        </View>
-      </Screen>
-    );
-  }
-
-  const accentColor = '#FF6B00';
+  const shop = shops.find((item) => item.id === route.params?.shopId) ?? shops[0];
+  const items = products.filter((product) => product.shopId === shop.id);
+  const { cartCount, cartSubtotal } = useApp();
 
   return (
     <Screen>
       <ScrollView
         contentContainerStyle={{ paddingBottom: cartCount ? 110 : spacing.xxl }}
         showsVerticalScrollIndicator={false}>
-        <View style={[styles.storeHero, { backgroundColor: accentColor }]}>
+        <View style={[styles.storeHero, { backgroundColor: shop.accent }]}>
           <Header
             title=""
             onBack={() => navigation.goBack()}
             right={<Bell size={22} color={colors.text} />}
           />
-          <Text style={styles.storeSign}>{shop.shopName.toUpperCase()}</Text>
-          <Text style={styles.storeName}>{shop.shopName}</Text>
-          <Text style={styles.storeInfo}>⭐ {shop.averageRating?.toFixed(1) || '4.8'} Top rated store</Text>
-          <Text style={styles.storeInfo}>Delivery in 5-10 mins</Text>
+          <Text style={styles.storeSign}>{shop.hero}</Text>
+          <Text style={styles.storeName}>{shop.name}</Text>
+          <Text style={styles.storeInfo}>⭐ {shop.rating} Top rated store</Text>
+          <Text style={styles.storeInfo}>Delivery in {shop.eta}</Text>
         </View>
         <View style={styles.sectionHeader}>
           <Text style={commonStyles.sectionTitle}>Available items</Text>
           <Text style={styles.payLater}>Pay on delivery</Text>
         </View>
-        {isLoading ? (
-          <View style={{ padding: spacing.xl, alignItems: 'center' }}>
-            <ActivityIndicator color={colors.primary} size="large" />
-          </View>
-        ) : (
-          <View style={styles.productGrid}>
-            {products.map((product) => (
-              <ProductCard
-                key={product._id}
-                product={product}
-                onPress={() => navigation.navigate('ProductDetail', { productId: product._id })}
-              />
-            ))}
-          </View>
-        )}
-        {!isLoading && products.length === 0 && (
-          <EmptyState
-            icon={<PackageCheck size={48} color={colors.secondary} />}
-            message="No products available"
-          />
-        )}
+        <View style={styles.productGrid}>
+          {items.map((product) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              onPress={() => navigation.navigate('ProductDetail', { productId: product.id })}
+            />
+          ))}
+        </View>
       </ScrollView>
       {cartCount ? (
         <Pressable onPress={() => navigation.navigate('Cart')} style={styles.cartBar}>
@@ -229,21 +173,15 @@ export function BuyerStorefrontScreen({ navigation, route }: any) {
 
 function ProductCard({ product, onPress }: { product: Product; onPress: () => void }) {
   const { addToCart, removeFromCart, cart } = useApp();
-  const quantity = cart.find((item) => item.product._id === product._id)?.quantity ?? 0;
-  
-  // Extract emoji from product name (if it starts with an emoji)
-  const emojiMatch = product.name.match(/^([\u{1F000}-\u{1F9FF}])/u);
-  const emoji = emojiMatch ? emojiMatch[0] : product.emoji || '📦';
-  const displayName = product.name.replace(/^[\u{1F000}-\u{1F9FF}]\s*/u, '');
-  
+  const quantity = cart.find((item) => item.product.id === product.id)?.quantity ?? 0;
   return (
     <Pressable onPress={onPress} style={styles.productCard}>
       <View style={styles.productImage}>
-        <Text style={styles.productEmoji}>{emoji}</Text>
+        <Text style={styles.productEmoji}>{product.emoji}</Text>
         <View style={styles.productAdd}>
           {quantity ? (
             <>
-              <Pressable onPress={() => removeFromCart(product._id)}>
+              <Pressable onPress={() => removeFromCart(product.id)}>
                 <Trash2 size={17} color={colors.text} />
               </Pressable>
               <Text style={styles.quantity}>{quantity}</Text>
@@ -254,67 +192,24 @@ function ProductCard({ product, onPress }: { product: Product; onPress: () => vo
           </Pressable>
         </View>
       </View>
-      <Text style={styles.productName} numberOfLines={2}>{displayName}</Text>
+      <Text style={styles.productName}>{product.name}</Text>
       <Text style={styles.productPrice}>{formatNaira(product.price)}</Text>
-      {product.description && (
-        <Text style={styles.productDescription} numberOfLines={1}>{product.description}</Text>
-      )}
     </Pressable>
   );
 }
 
 export function BuyerProductScreen({ navigation, route }: any) {
-  const { products, addToCart } = useApp();
-  const [product, setProduct] = useState<Product | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const productId = route.params?.productId;
-    if (productId) {
-      // Try to find in current products list first
-      const found = products.find((item) => item._id === productId);
-      if (found) {
-        setProduct(found);
-        setIsLoading(false);
-      } else {
-        // Fetch from API if not in list
-        api.get<Product>(`/api/products/${productId}`)
-          .then((data) => {
-            setProduct(data);
-            setIsLoading(false);
-          })
-          .catch((err) => {
-            console.error('Failed to fetch product:', err);
-            setIsLoading(false);
-          });
-      }
-    }
-  }, [route.params?.productId, products]);
-
-  if (isLoading || !product) {
-    return (
-      <Screen>
-        <Header title="Product" onBack={() => navigation.goBack()} />
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator color={colors.primary} size="large" />
-        </View>
-      </Screen>
-    );
-  }
-
-  // Extract emoji from product name
-  const emojiMatch = product.name.match(/^([\u{1F000}-\u{1F9FF}])/u);
-  const emoji = emojiMatch ? emojiMatch[0] : product.emoji || '📦';
-  const displayName = product.name.replace(/^[\u{1F000}-\u{1F9FF}]\s*/u, '');
+  const product = products.find((item) => item.id === route.params?.productId) ?? products[0];
+  const { addToCart } = useApp();
 
   return (
     <Screen>
       <Header title="Product" onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.detailImage}>
-          <Text style={styles.detailEmoji}>{emoji}</Text>
+          <Text style={styles.detailEmoji}>{product.emoji}</Text>
         </View>
-        <Text style={commonStyles.title}>{displayName}</Text>
+        <Text style={commonStyles.title}>{product.name}</Text>
         <Text style={styles.detailPrice}>{formatNaira(product.price)}</Text>
         <Text style={commonStyles.body}>{product.description}</Text>
         <Card style={styles.trustCard}>
@@ -350,33 +245,24 @@ export function BuyerCartScreen({ navigation }: any) {
       ) : (
         <>
           <ScrollView contentContainerStyle={styles.content}>
-            {cart.map((item) => {
-              // Extract emoji from product name
-              const emojiMatch = item.product.name.match(/^([\u{1F000}-\u{1F9FF}])/u);
-              const emoji = emojiMatch ? emojiMatch[0] : item.product.emoji || '📦';
-              const displayName = item.product.name.replace(/^[\u{1F000}-\u{1F9FF}]\s*/u, '');
-              
-              return (
-                <Card key={item.product._id} style={styles.cartItem}>
-                  <View style={styles.cartEmojiContainer}>
-                    <Text style={styles.cartEmoji}>{emoji}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.productName}>{displayName}</Text>
-                    <Text style={styles.productPrice}>{formatNaira(item.product.price)}</Text>
-                  </View>
-                  <View style={styles.counter}>
-                    <Pressable onPress={() => removeFromCart(item.product._id)}>
-                      <Minus size={17} color={colors.text} />
-                    </Pressable>
-                    <Text style={styles.quantity}>{item.quantity}</Text>
-                    <Pressable onPress={() => addToCart(item.product)}>
-                      <Plus size={17} color={colors.text} />
-                    </Pressable>
-                  </View>
-                </Card>
-              );
-            })}
+            {cart.map((item) => (
+              <Card key={item.product.id} style={styles.cartItem}>
+                <Text style={styles.cartEmoji}>{item.product.emoji}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.productName}>{item.product.name}</Text>
+                  <Text style={styles.productPrice}>{formatNaira(item.product.price)}</Text>
+                </View>
+                <View style={styles.counter}>
+                  <Pressable onPress={() => removeFromCart(item.product.id)}>
+                    <Minus size={17} color={colors.text} />
+                  </Pressable>
+                  <Text style={styles.quantity}>{item.quantity}</Text>
+                  <Pressable onPress={() => addToCart(item.product)}>
+                    <Plus size={17} color={colors.text} />
+                  </Pressable>
+                </View>
+              </Card>
+            ))}
           </ScrollView>
           <View style={styles.footer}>
             <View style={styles.totalRow}>
@@ -397,25 +283,7 @@ export function BuyerCheckoutScreen({ navigation }: any) {
     'Yellow gate opposite RCCG youth church, beside the mallam selling fruits'
   );
   const [address, setAddress] = useState('Salisu Street');
-  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const deliveryFee = 550;
-
-  const handlePlaceOrder = async () => {
-    if (!landmark.trim()) {
-      Alert.alert('Missing Information', 'Please provide a landmark for delivery');
-      return;
-    }
-
-    setIsPlacingOrder(true);
-    try {
-      const order = await placeOrder(landmark, address);
-      navigation.replace('OrderPlaced', { orderId: order._id });
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to place order. Please try again.');
-    } finally {
-      setIsPlacingOrder(false);
-    }
-  };
 
   return (
     <Screen>
@@ -460,9 +328,12 @@ export function BuyerCheckoutScreen({ navigation }: any) {
       </ScrollView>
       <View style={styles.footer}>
         <Button
-          title={isPlacingOrder ? "Placing Order..." : "Place Order"}
-          disabled={!landmark.trim() || isPlacingOrder}
-          onPress={handlePlaceOrder}
+          title="Place Order"
+          disabled={!landmark.trim()}
+          onPress={() => {
+            const order = placeOrder(landmark, address);
+            navigation.replace('OrderPlaced', { orderId: order.id });
+          }}
         />
       </View>
     </Screen>
@@ -480,22 +351,7 @@ function SummaryRow({ label, value, bold }: { label: string; value: string; bold
 
 export function BuyerOrderPlacedScreen({ navigation, route }: any) {
   const { orders } = useApp();
-  const order = orders.find((item) => item._id === route.params?.orderId);
-
-  if (!order) {
-    return (
-      <Screen>
-        <Header title="Order Placed" onBack={() => navigation.goBack()} />
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator color={colors.primary} size="large" />
-        </View>
-      </Screen>
-    );
-  }
-
-  // Get shop name from vendorId
-  const shopName = typeof order.vendorId === 'object' ? order.vendorId.shopName : 'Shop';
-  const deliveryAddress = order.deliveryLocation?.landmark || order.deliveryLocation?.description || 'N/A';
+  const order = orders.find((item) => item.id === route.params?.orderId) ?? orders[0];
 
   return (
     <Screen>
@@ -509,16 +365,15 @@ export function BuyerOrderPlacedScreen({ navigation, route }: any) {
         </Text>
         <Card>
           <Text style={styles.orderSummaryTitle}>Order Summary</Text>
-          <SummaryRow label="Order Reference:" value={order._id.slice(-8).toUpperCase()} />
-          <SummaryRow label="Shop:" value={shopName} />
+          <SummaryRow label="Order Reference:" value={order.id} />
           <SummaryRow label="Est Delivery Time:" value="10-20 mins" />
-          <SummaryRow label="Shipping Address" value={deliveryAddress} />
+          <SummaryRow label="Shipping Address" value={order.address} />
         </Card>
       </View>
       <View style={styles.footer}>
         <Button
           title="Track my Order"
-          onPress={() => navigation.replace('Tracking', { orderId: order._id })}
+          onPress={() => navigation.replace('Tracking', { orderId: order.id })}
         />
       </View>
     </Screen>
@@ -527,37 +382,12 @@ export function BuyerOrderPlacedScreen({ navigation, route }: any) {
 
 export function BuyerTrackingScreen({ navigation, route }: any) {
   const { orders, updateOrderStatus } = useApp();
-  const order = orders.find((item) => item._id === route.params?.orderId);
-
-  if (!order) {
-    return (
-      <Screen>
-        <Header title="Track Order" onBack={() => navigation.goBack()} />
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator color={colors.primary} size="large" />
-        </View>
-      </Screen>
-    );
-  }
-
-  // Get shop name from vendorId
-  const shopName = typeof order.vendorId === 'object' ? order.vendorId.shopName : 'Shop';
-
-  // Map backend status to UI steps
-  const statusSteps: Record<string, number> = {
-    'PENDING_ACCEPTANCE': 1,
-    'READY_FOR_PICKUP': 2,
-    'OUT_FOR_DELIVERY': 3,
-    'DELIVERED': 4,
-  };
-
-  const currentStep = statusSteps[order.status] || 1;
-
+  const order = orders.find((item) => item.id === route.params?.orderId) ?? orders[0];
   const steps = [
-    { label: 'Order Received', step: 1 },
-    { label: 'Being Packed', step: 2 },
-    { label: 'With Rider', step: 3 },
-    { label: 'Delivered', step: 4 },
+    ['Order Received', 'placed'],
+    ['Being Packed', 'packed'],
+    ['With Rider', 'with-rider'],
+    ['Delivered', 'delivered'],
   ];
 
   return (
@@ -567,15 +397,19 @@ export function BuyerTrackingScreen({ navigation, route }: any) {
         <View style={styles.content}>
           <Card style={styles.trackingHead}>
             <View>
-              <Text style={styles.orderSummaryTitle}>#{order._id.slice(-8).toUpperCase()}</Text>
-              <Text style={styles.paymentSub}>{shopName}</Text>
+              <Text style={styles.orderSummaryTitle}>{order.id}</Text>
+              <Text style={styles.paymentSub}>{order.shopName}</Text>
             </View>
-            <StatusBadge status={order.status.toLowerCase().replace(/_/g, '-')} />
+            <StatusBadge status={order.status} />
           </Card>
           <Card style={{ gap: spacing.xl }}>
             <Text style={styles.checkoutTitleNoMargin}>Delivery Progress</Text>
-            {steps.map(({ label, step }) => {
-              const active = step <= currentStep;
+            {steps.map(([label, step]) => {
+              const active =
+                step === 'placed' ||
+                step === 'packed' ||
+                step === order.status ||
+                order.status === 'with-rider';
               return (
                 <View key={step} style={styles.progressRow}>
                   <PackageCheck size={22} color={active ? colors.primary : colors.placeholder} />
@@ -586,28 +420,24 @@ export function BuyerTrackingScreen({ navigation, route }: any) {
               );
             })}
           </Card>
-          {currentStep >= 3 && (
-            <Card style={styles.riderCard}>
-              <View style={styles.riderMini}>
-                <Bike size={24} color={colors.text} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.productName}>Your Rider</Text>
-                <Text style={styles.paymentSub}>Assigned and on the way</Text>
-              </View>
-              <Phone size={22} color={colors.text} />
-            </Card>
-          )}
-          {order.status !== 'DELIVERED' && (
-            <Button
-              title="Simulate Rider Arrived"
-              variant="secondary"
-              onPress={() => {
-                updateOrderStatus(order._id, 'DELIVERED');
-                navigation.navigate('Payment', { orderId: order._id });
-              }}
-            />
-          )}
+          <Card style={styles.riderCard}>
+            <View style={styles.riderMini}>
+              <Bike size={24} color={colors.text} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.productName}>Your Rider</Text>
+              <Text style={styles.paymentSub}>Assigned and on the way</Text>
+            </View>
+            <Phone size={22} color={colors.text} />
+          </Card>
+          <Button
+            title="Simulate Rider Arrived"
+            variant="secondary"
+            onPress={() => {
+              updateOrderStatus(order.id, 'arrived');
+              navigation.navigate('Payment', { orderId: order.id });
+            }}
+          />
         </View>
       </ScrollView>
     </Screen>
@@ -616,19 +446,8 @@ export function BuyerTrackingScreen({ navigation, route }: any) {
 
 export function BuyerPaymentScreen({ navigation, route }: any) {
   const { orders, updateOrderStatus } = useApp();
-  const order = orders.find((item) => item._id === route.params?.orderId);
+  const order = orders.find((item) => item.id === route.params?.orderId) ?? orders[0];
   const [method, setMethod] = useState<'bank' | 'qr'>('bank');
-
-  if (!order) {
-    return (
-      <Screen>
-        <Header title="Make Payment" onBack={() => navigation.goBack()} />
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator color={colors.primary} size="large" />
-        </View>
-      </Screen>
-    );
-  }
 
   return (
     <Screen>
@@ -656,7 +475,7 @@ export function BuyerPaymentScreen({ navigation, route }: any) {
               <SummaryRow label="Account name" value="Oja Platform" />
               <SummaryRow
                 label="Amount"
-                value={formatNaira(order.totalAmount + order.deliveryFee)}
+                value={formatNaira(order.subtotal + order.deliveryFee)}
                 bold
               />
             </>
@@ -672,8 +491,8 @@ export function BuyerPaymentScreen({ navigation, route }: any) {
         <Button
           title="I've made Payment"
           onPress={() => {
-            updateOrderStatus(order._id, 'DELIVERED');
-            navigation.navigate('Tracking', { orderId: order._id });
+            updateOrderStatus(order.id, 'paid');
+            navigation.navigate('Tracking', { orderId: order.id });
           }}
         />
       </View>
@@ -690,7 +509,7 @@ export function BuyerHistoryScreen({ navigation }: any) {
       <FlatList
         contentContainerStyle={styles.content}
         data={orders}
-        keyExtractor={(item) => item._id}
+        keyExtractor={(item) => item.id}
         ListEmptyComponent={
           <EmptyState
             icon={<History size={32} color={colors.primary} />}
@@ -698,23 +517,20 @@ export function BuyerHistoryScreen({ navigation }: any) {
             body="Your completed Oja orders will appear here."
           />
         }
-        renderItem={({ item }) => {
-          const shopName = typeof item.vendorId === 'object' ? item.vendorId.shopName : 'Shop';
-          return (
-            <Pressable
-              onPress={() =>
-                navigation.navigate('Market', { screen: 'Tracking', params: { orderId: item._id } })
-              }>
-              <Card style={styles.historyCard}>
-                <View>
-                  <Text style={styles.orderSummaryTitle}>#{item._id.slice(-8).toUpperCase()}</Text>
-                  <Text style={styles.paymentSub}>{shopName}</Text>
-                </View>
-                <StatusBadge status={item.status.toLowerCase().replace(/_/g, '-')} />
-              </Card>
-            </Pressable>
-          );
-        }}
+        renderItem={({ item }) => (
+          <Pressable
+            onPress={() =>
+              navigation.navigate('Market', { screen: 'Tracking', params: { orderId: item.id } })
+            }>
+            <Card style={styles.historyCard}>
+              <View>
+                <Text style={styles.orderSummaryTitle}>{item.id}</Text>
+                <Text style={styles.paymentSub}>{item.shopName}</Text>
+              </View>
+              <StatusBadge status={item.status} />
+            </Card>
+          </Pressable>
+        )}
       />
     </Screen>
   );
@@ -988,12 +804,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
     fontSize: 16,
   },
-  productDescription: {
-    marginTop: 4,
-    color: colors.secondary,
-    fontFamily: fonts.body,
-    fontSize: 14,
-  },
   quantity: {
     fontFamily: fonts.title,
     color: colors.text,
@@ -1064,15 +874,13 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   cartEmoji: {
-    fontSize: 42,
-  },
-  cartEmojiContainer: {
     width: 72,
     height: 72,
     borderRadius: 12,
     backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    fontSize: 42,
     overflow: 'hidden',
   },
   counter: {

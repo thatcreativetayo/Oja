@@ -1,28 +1,15 @@
-import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import api from '../lib/api';
-import { useAuthStore } from '../../stores/AuthStore';
-import { connectSocket, disconnectSocket, getSocket } from '../lib/socket';
+import { createContext, ReactNode, useContext, useMemo, useState } from 'react';
+
 import {
-  transformVendorToShop,
-  transformProduct,
-  transformOrder,
-  BackendVendor,
-  BackendProduct,
-  BackendOrder,
-  Shop,
-  Product,
+  CartItem,
   Order,
-  OrderStatus,
-} from '../utils/dataTransformers';
-
-export type { Shop, Product, Order, OrderStatus };
-
-export interface CartItem {
-  product: Product;
-  quantity: number;
-}
-
-type Role = 'buyer' | 'vendor' | 'rider';
+  Product,
+  Role,
+  existingOrders,
+  formatNaira,
+  products,
+  shops,
+} from '../constants/mockData';
 
 type UserProfile = {
   name: string;
@@ -37,31 +24,15 @@ type AppContextValue = {
   completeOnboarding: () => void;
   profile: UserProfile;
   updateProfile: (profile: Partial<UserProfile>) => void;
-  
-  // API data
-  shops: Shop[];
-  products: Product[];
-  orders: Order[];
-  
-  // Cart (local state)
   cart: CartItem[];
-  cartSubtotal: number;
-  cartCount: number;
+  orders: Order[];
   addToCart: (product: Product) => void;
   removeFromCart: (productId: string) => void;
   clearCart: () => void;
-  
-  // API methods
-  fetchShops: () => Promise<void>;
-  fetchProducts: (vendorId: string) => Promise<void>;
-  fetchOrders: () => Promise<void>;
-  placeOrder: (landmark: string, address: string) => Promise<Order>;
-  updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
-  
-  // Loading states
-  isLoading: boolean;
-  
-  // Legacy methods
+  cartSubtotal: number;
+  cartCount: number;
+  placeOrder: (landmark: string, address: string) => Order;
+  updateOrderStatus: (orderId: string, status: Order['status']) => void;
   resetDemo: () => void;
 };
 
@@ -75,17 +46,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     phone: '0812 220 0011',
     community: 'Redemption City, Ogun',
   });
-  
-  // API data state
-  const [shops, setShops] = useState<Shop[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  
-  // Cart state (local only)
   const [cart, setCart] = useState<CartItem[]>([]);
-
-  const { user } = useAuthStore();
+  const [orders, setOrders] = useState<Order[]>(existingOrders);
 
   const cartSubtotal = useMemo(
     () => cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0),
@@ -93,93 +55,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
   const cartCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
 
-  // API methods
-  const fetchShops = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const data = await api.get<BackendVendor[]>('/api/vendors');
-      setShops(data.map(transformVendorToShop));
-    } catch (error) {
-      console.error('Failed to fetch shops:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const fetchProducts = useCallback(async (vendorId: string) => {
-    setIsLoading(true);
-    try {
-      const data = await api.get<BackendProduct[]>(`/api/products?vendorId=${vendorId}`);
-      setProducts(data.map(transformProduct));
-    } catch (error) {
-      console.error('Failed to fetch products:', error);
-      setProducts([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const fetchOrders = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const data = await api.get<BackendOrder[]>('/api/orders');
-      setOrders(data.map(transformOrder));
-    } catch (error) {
-      console.error('Failed to fetch orders:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const placeOrder = async (landmark: string, address: string): Promise<Order> => {
-    const vendorId =
-      typeof cart[0]?.product.vendorId === 'string'
-        ? cart[0].product.vendorId
-        : cart[0]?.product.vendorId;
-
-    const order = await api.post<BackendOrder>('/api/orders', {
-      vendorId,
-      items: cart.map((item) => ({
-        productId: item.product._id,
-        productName: item.product.name,
-        quantity: item.quantity,
-        price: item.product.price,
-      })),
-      totalAmount: cartSubtotal,
-      deliveryLocation: { landmark, description: address },
-    });
-
-    const transformedOrder = transformOrder(order);
-    setOrders((current) => [transformedOrder, ...current]);
-    setCart([]);
-    return transformedOrder;
-  };
-
-  const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
-    const endpointMap: Record<string, string> = {
-      READY_FOR_PICKUP: `/api/orders/${orderId}/accept`,
-      OUT_FOR_DELIVERY: `/api/orders/${orderId}/assign-rider`,
-      DELIVERED: `/api/orders/${orderId}/complete`,
-      CANCELLED: `/api/orders/${orderId}/cancel`,
-    };
-
-    const endpoint = endpointMap[status];
-    if (endpoint) {
-      const updated = await api.patch<BackendOrder>(endpoint);
-      const transformedOrder = transformOrder(updated);
-      setOrders((current) =>
-        current.map((order) => (order._id === orderId ? transformedOrder : order))
-      );
-    }
-  };
-
-  // Cart operations (local state only, no API calls)
   const addToCart = (product: Product) => {
     setCart((current) => {
-      const found = current.find((item) => item.product._id === product._id);
+      const found = current.find((item) => item.product.id === product.id);
       if (found) {
         return current.map((item) =>
-          item.product._id === product._id ? { ...item, quantity: item.quantity + 1 } : item
+          item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
       return [...current, { product, quantity: 1 }];
@@ -190,65 +71,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCart((current) =>
       current
         .map((item) =>
-          item.product._id === productId ? { ...item, quantity: item.quantity - 1 } : item
+          item.product.id === productId ? { ...item, quantity: item.quantity - 1 } : item
         )
         .filter((item) => item.quantity > 0)
     );
   };
 
-  // Fetch data when user logs in
-  useEffect(() => {
-    if (user) {
-      fetchShops();
-      fetchOrders();
-    }
-  }, [user, fetchShops, fetchOrders]);
+  const placeOrder = (landmark: string, address: string) => {
+    const firstItem = cart[0]?.product ?? products[0];
+    const shop = shops.find((item) => item.id === firstItem.shopId) ?? shops[0];
+    const nextOrder: Order = {
+      id: `OJA-2026-${String(42 + orders.length).padStart(4, '0')}`,
+      shopId: shop.id,
+      shopName: shop.name,
+      items: cart.length ? cart : [{ product: products[0], quantity: 1 }],
+      status: 'placed',
+      subtotal: cartSubtotal || products[0].price,
+      deliveryFee: 550,
+      address: address || 'Salisu Street',
+      landmark,
+      buyerName: profile.name,
+      riderName: 'Tunde O.',
+      riderPhone: '0812 220 0011',
+      createdAt: new Date().toISOString(),
+    };
+    setOrders((current) => [nextOrder, ...current]);
+    setCart([]);
+    return nextOrder;
+  };
 
-  // Socket.IO integration for real-time updates
-  useEffect(() => {
-    if (user) {
-      connectSocket().then((socket) => {
-        // Order events
-        socket.on('order:new', () => {
-          console.log('New order received');
-          fetchOrders();
-        });
-
-        socket.on('order:accepted', () => {
-          console.log('Order accepted');
-          fetchOrders();
-        });
-
-        socket.on('order:pickedup', () => {
-          console.log('Order picked up');
-          fetchOrders();
-        });
-
-        socket.on('order:delivered', () => {
-          console.log('Order delivered');
-          fetchOrders();
-        });
-
-        socket.on('kyc:verified', () => {
-          console.log('KYC verified');
-        });
-      });
-
-      return () => {
-        const socket = getSocket();
-        if (socket) {
-          socket.off('order:new');
-          socket.off('order:accepted');
-          socket.off('order:pickedup');
-          socket.off('order:delivered');
-          socket.off('kyc:verified');
-        }
-        disconnectSocket();
-      };
-    }
-  }, [user, fetchOrders]);
-
-  const value: AppContextValue = {
+  const value = {
     role,
     setRole,
     onboarded,
@@ -256,36 +108,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     profile,
     updateProfile: (nextProfile: Partial<UserProfile>) =>
       setProfile((current) => ({ ...current, ...nextProfile })),
-    
-    // API data
-    shops,
-    products,
-    orders,
-    
-    // Cart
     cart,
-    cartSubtotal,
-    cartCount,
+    orders,
     addToCart,
     removeFromCart,
     clearCart: () => setCart([]),
-    
-    // API methods
-    fetchShops,
-    fetchProducts,
-    fetchOrders,
+    cartSubtotal,
+    cartCount,
     placeOrder,
-    updateOrderStatus,
-    
-    // Loading
-    isLoading,
-    
-    // Legacy
+    updateOrderStatus: (orderId: string, status: Order['status']) =>
+      setOrders((current) =>
+        current.map((order) => (order.id === orderId ? { ...order, status } : order))
+      ),
     resetDemo: () => {
       setRole(null);
       setOnboarded(false);
       setCart([]);
-      setOrders([]);
+      setOrders(existingOrders);
     },
   };
 
@@ -300,5 +139,4 @@ export function useApp() {
   return context;
 }
 
-export const formatNaira = (value: number) => `₦${value.toLocaleString('en-NG')}`;
-
+export { formatNaira, products, shops };

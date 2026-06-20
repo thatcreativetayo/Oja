@@ -2,13 +2,11 @@ import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { useEffect, useState } from 'react';
 
 import { AppProvider } from './src/context/AppContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { colors } from './src/constants/theme';
 import { useAppFonts } from './hooks/useAppFonts';
-import { useAuthStore } from './stores/AuthStore';
 
 const navigationTheme = {
   ...DefaultTheme,
@@ -24,14 +22,8 @@ const navigationTheme = {
 
 export default function App() {
   const [fontsLoaded] = useAppFonts();
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-  const loadSession = useAuthStore((state) => state.loadSession);
 
-  useEffect(() => {
-    loadSession().finally(() => setIsCheckingAuth(false));
-  }, [loadSession]);
-
-  if (!fontsLoaded || isCheckingAuth) {
+  if (!fontsLoaded) {
     return (
       <View
         style={{
