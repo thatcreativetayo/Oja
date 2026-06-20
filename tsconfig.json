@@ -4,7 +4,18 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./*"],
+      "components/*": ["./components/*"],
+      "hooks/*": ["./hooks/*"]
     }
-  }
+  },
+  "include": [
+    "App.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "hooks/**/*.ts",
+    "hooks/**/*.tsx",
+    "svg.d.ts"
+  ],
+  "exclude": ["app", "components", "dist", "node_modules"]
 }

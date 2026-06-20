@@ -1,10 +1,11 @@
+import type { FC } from 'react';
 import { Text, View } from 'react-native';
 
 interface EditScreenInfoProps {
   path: string;
 }
 
-export const EditScreenInfo: React.FC<EditScreenInfoProps> = ({ path }) => {
+export const EditScreenInfo: FC<EditScreenInfoProps> = ({ path }) => {
   const title = 'Open up the code for this screen:';
   const description =
     'Change any of the text, save the file, and your app will automatically update.';
@@ -14,7 +15,7 @@ export const EditScreenInfo: React.FC<EditScreenInfoProps> = ({ path }) => {
       <View className={styles.getStartedContainer}>
         <Text className={styles.getStartedText}>{title}</Text>
         <View className={`${styles.codeHighlightContainer} ${styles.homeScreenFilename}`}>
-          <Text>{path}</Text>
+          <Text className="font-sans">{path}</Text>
         </View>
         <Text className={styles.getStartedText}>{description}</Text>
       </View>
@@ -25,6 +26,6 @@ export const EditScreenInfo: React.FC<EditScreenInfoProps> = ({ path }) => {
 const styles = {
   codeHighlightContainer: `rounded-md px-1`,
   getStartedContainer: `items-center mx-12`,
-  getStartedText: `text-lg leading-6 text-center`,
+  getStartedText: `font-sans text-lg leading-6 text-orange-500 text-center`,
   homeScreenFilename: `my-2`,
 };
