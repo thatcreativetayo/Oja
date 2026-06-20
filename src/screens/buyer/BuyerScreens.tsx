@@ -568,11 +568,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF1F2',
     paddingTop: spacing.xxl,
     paddingHorizontal: spacing.lg,
-    paddingBottom: 44,
+    paddingBottom: 144,
   },
   heroTop: {
     flexDirection: 'row',
-    height: 160,
+    height: 60,
     backgroundColor:  "black",
     alignItems: 'center',
     justifyContent: 'space-between',

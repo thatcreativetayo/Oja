@@ -7,6 +7,8 @@ import { AppProvider } from './src/context/AppContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { colors } from './src/constants/theme';
 import { useAppFonts } from './hooks/useAppFonts';
+import { MobileFrame } from './src/components/MobileFrame';
+import { UniversalBackButton } from './src/components/UniversalBackButton';
 
 const navigationTheme = {
   ...DefaultTheme,
@@ -38,13 +40,16 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider>
-      <AppProvider>
-        <NavigationContainer theme={navigationTheme}>
-          <RootNavigator />
-        </NavigationContainer>
-      </AppProvider>
-      <StatusBar style="dark" />
-    </SafeAreaProvider>
+    <MobileFrame>
+      <SafeAreaProvider>
+        <AppProvider>
+          <NavigationContainer theme={navigationTheme}>
+            <RootNavigator />
+            <UniversalBackButton />
+          </NavigationContainer>
+        </AppProvider>
+        <StatusBar style="dark" />
+      </SafeAreaProvider>
+    </MobileFrame>
   );
 }

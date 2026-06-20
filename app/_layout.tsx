@@ -11,7 +11,7 @@ export default function RootLayout() {
 
   if (!fontsLoaded) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
+      <View className="flex-1 lg:max-w-300 items-center justify-center bg-white">
         <ActivityIndicator />
       </View>
     );
